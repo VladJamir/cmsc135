@@ -5,7 +5,7 @@ import utils
 class  Client(object):
     
     def __init__(self, name, host, port):
-        self.name = name
+        self.name = '[' + name + ']'
         self.host = host
         self.port = int(port)
         self.socket = socket.socket()
@@ -32,7 +32,8 @@ class  Client(object):
                         sys.stdout.write(utils.CLIENT_WIPE_ME, utils.CLIENT_MESSAGE_PREFIX, ); sys.stdout.flush()
                 else:
                     msg = sys.stdin.readline()
-                    s.send(msg)
+                    msg = name + ' ' + msg
+                    s.send(name msg)
                     sys.stdout.write(utils.CLIENT_MESSAGE_PREFIX, ); sys.stdout.flush()
                 
 args = sys.argv
