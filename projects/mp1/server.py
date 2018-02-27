@@ -5,10 +5,6 @@ class Channel(object):
     def __init__(self, name):
         self.name = name
         self.members = []
-    def add(self, socket):
-        self.members.append(socket)
-    def delete(self, socket)
-        self.members.remove(socket)
     
 
 class Server(object):
@@ -36,12 +32,20 @@ class Server(object):
                         data = s.recv(1024)
                         if data:
                             if data[:5] == '/join':
+                                to_join == ''
+                                channel_name = data[5:]
+                                for channel in self.channels:
+                                    if s in channel.members:
+                                        channel.members.remove(s)
+                                    if channel_name == channel.name
+                                        to_join == channel
+                                #broadcast to connected sockets in the channel
                             elif data[:7] == '/create':
                                 if (data[7:] in self.channel_names):
                                     #broadcast to requesting socket that channel already exists
                                 else:
                                     channel = Channel(data[7:])
-                                    channel.add(s)
+                                    channel.members.add(s)
                             elif data[:5] == '/list':
                                 #broadcast self.channel_names to requesting socket
                             elif data[:1] == '/':
@@ -66,8 +70,10 @@ class Server(object):
                 socket.close()
                 for chan in channels:
                     if socket in chan.members
-                        chan.delete(socket)
+                        chan.members.remove(socket)
                 self.socket_list.remove(socket)
+    
+    def join(self, channel)
 
 args = sys.argv
 if len(args) != 2:
