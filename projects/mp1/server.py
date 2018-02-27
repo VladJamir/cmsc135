@@ -21,6 +21,7 @@ class Server(object):
         self.socket_list = [self.server]
         self.channels = []
         self.channel_names = []
+        self.regex = 
 
     def run(self):
         while True:
@@ -34,20 +35,8 @@ class Server(object):
                 else:
                     try:
                         data = s.recv(1024)
+                        
                         if data:
-                            if data[:5] == '/join':
-                            elif data[:7] == '/create':
-                                if (data[7:] in self.channel_names):
-                                    #broadcast to requesting socket that channel already exists
-                                else:
-                                    channel = Channel(data[7:])
-                                    channel.add(s)
-                            elif data[:5] == '/list':
-                                #broadcast self.channel_names to requesting socket
-                            elif data[:1] == '/':
-                                #brodcast error message SERVER_INVALID_CONTROL_MESSAGE
-                            else:
-                                #broadcast message to channel
                             
                         else: 
                             #broadcast to channels if disconnected
