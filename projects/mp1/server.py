@@ -37,19 +37,26 @@ class Server(object):
                             if m.group(2) == '/join':
                                 if m.group(3) == '':
                                     #send error message
+                                    self.send_error_message(s, utils.SERVER_JOIN_REQUIRES_ARGUMENT)
                                 else:
                                     #join
+                                    self.join(m.group(1), s, m.group(3))
                             elif m.group(2) == '/create':
                                 if m.group(3) == '':
-                                    #send error message
+                                    self.send_error_message(s, utils.SERVER_CREATE_REQUIRES_ARGUMENT)
+                                elif m.group(3) in self.channel_names:
+                                    self.send_error_message(s, utils.SERVER_CHANNEL_EXISTS.format(m.group(3)))
                                 else: 
                                     #create
                             elif m.group(2) == '/list' and m.group(2) == '':
                                 #show list
+                                self.send_list(s)
                             elif m.group(3).startswith('/'):
                                 #invalid pattern send SERVER_INVALID_CONTROL_MESSAGE = \
+                                self.send_error_message(s, utils.SERVER_INVALID_CONTROL_MESSAGE)
                             else:
                                 #send message to channels
+                                self.send_message(s, data)
                         else: 
                             #broadcast to channels if disconnected
                             if sock in self.socket_list:
@@ -82,15 +89,20 @@ class Server(object):
                         self.socket_list.remove(client)
 
     def join(self, name, socket, channel):
-        for client in channel.members:
-            try:
-                if client != socket:
-                    client.send(utils.SERVER_CLIENT_JOINED_CHANNEL.format(name) + '\n')
-            except:
-                client.close()
-                channel.members.remove(client)
-                self.socket_list.remove(client)
-        channel.members.add(socket)
+        for ch in self.channels:
+            if ch.name == channel:
+                for client in channel.members:
+                    try:
+                        if client != socket:
+                            client.send(utils.SERVER_CLIENT_JOINED_CHANNEL.format(name) + '\n')
+                    except:
+                        client.close()
+                        channel.members.remove(client)
+                        self.socket_list.remove(client)
+                channel.members.add(socket)
+                break
+        else:
+            socket.send(utils.SERVER_NO_CHANNEL_EXISTS)
 
     def create(self, name, socket):
         channel = Channel(name)
