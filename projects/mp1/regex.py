@@ -7,8 +7,6 @@ regex = '\[(.+)\]\s(.+)*\s?(.*)'
 pattern = re.compile(regex)
 for string in strings:
     m = pattern.match(string)
-    print m.group(1),
-    if m:
-        print m.group(2).startswith('/')
-    else:
-        print 'Fail'
+    print m.group(1)
+    print m.group(2)
+    print m.group(3)

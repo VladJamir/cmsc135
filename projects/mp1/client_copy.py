@@ -31,12 +31,13 @@ class Client(object):
                         print utils.CLIENT_SERVER_DISCONNECTED.format(self.host, self.port)
                         sys.exit()
                     else:
-                        sys.stdout.write(utils.CLIENT_WIPE_ME + data.rstrip())
+                        sys.stdout.write(utils.CLIENT_WIPE_ME + data.rstrip() + '\n')
                         sys.stdout.write(utils.CLIENT_MESSAGE_PREFIX); sys.stdout.flush()
                 else:
                     msg = sys.stdin.readline()
+                    msg = '[' + self.name + '] ' + msg
                     self.client.send(msg.ljust(utils.MESSAGE_LENGTH))
-                    sys.stdout.write(utils.CLIENT_MESSAGE_PREFIX); sys.stdout.flush()
+                    sys.stdout.write(utils.CLIENT_WIPE_ME + utils.CLIENT_MESSAGE_PREFIX); sys.stdout.flush()
                     
 args = sys.argv
 if len(args) != 4:

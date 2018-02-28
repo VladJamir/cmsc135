@@ -2,6 +2,7 @@ import sys
 import socket
 import select
 import utils
+import re
 
 class Channel(object):
 
@@ -22,9 +23,10 @@ class Server(object):
         self.socket_list.append(self.server)
         self.channel_name_list = []
         self.channel_list = []
+        self.pattern = re.compile('\[(.+)\]\s(/join|/create|/list)?\s?(.*)')
     
     def chat(self):
-        pattern = re.compile('\[(.+)\]\s(/join|/create|/list)?\s?(.*)')
+        
         while True:
             readable, writable, exception = select.select(self.socket_list, [], [], 0)
             for socket in readable:
@@ -35,7 +37,7 @@ class Server(object):
                     try:
                         data = socket.recv(4096)
                         if data:
-                            m = pattern.match(data)
+                            m = self.pattern.match(data.rstrip())
                             if m.group(2) == '/join':
                                 if m.group(3) == '':
                                     self.send(socket, utils.SERVER_JOIN_REQUIRES_ARGUMENT)
@@ -50,7 +52,7 @@ class Server(object):
                                 if m.group(3) == '':
                                     self.send(socket, utils.SERVER_CREATE_REQUIRES_ARGUMENT)
                                 else:
-                                    if m.group(3) in self.channel_names:
+                                    if m.group(3) in self.channel_name_list:
                                         self.send(socket, utils.SERVER_CHANNEL_EXISTS.format(m.group(3)))
                                     else:
                                         #create
@@ -62,28 +64,33 @@ class Server(object):
                                 #invalid
                                 self.send(socket, utils.SERVER_INVALID_CONTROL_MESSAGE)
                             else:
+                                print 'it goes here '
                                 if not self.is_joined_in_channel(socket):
+                                    print 'a'
                                     self.send(socket, utils.SERVER_CLIENT_NOT_IN_CHANNEL)
                                 else:
+                                    print 'b'
                                     self.broadcast_to_channel(socket, data)
                         else:
                             if socket in self.socket_list:
                                 self.socket_list.remove(socket)
-                    except:
+                    except Exception as e:
                         #self.send(self.server, socket, 'Client  offline')  
-                        # send to channels that a socket left                          
+                        # send to channels that a socket left 
+                        #print 'e on line {}'.format(sys.exc_info()[-1].tb_lineno)                        
+                        print str(e)
                         continue
         self.server.close()
 
     def send(self, socket, message):
-        for s in self.socket_list:
-            if s != self.server and s != socket:
-                try:
-                    s.send(message)
-                except:
-                    s.close()
-                    if s in self.socket_list:
-                        self.socket_list.remove(s)
+        try:
+            print 'sending'
+            socket.send(message)
+        except:
+            print 'otherwise'
+            socket.close()
+            if s in self.socket_list:
+                self.socket_list.remove(s)
 
     def create(self, socket, new_channel_name):
         new_channel = Channel(new_channel_name)
@@ -117,7 +124,7 @@ class Server(object):
             if socket in channel.clients:
                 return True
         else:
-            returnFalse
+            return False
         
     def broadcast_to_channel(self, socket, message):
         for channel in self.channel_list:
