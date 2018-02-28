@@ -2,6 +2,7 @@ import sys
 import socket
 import re
 import utils
+import select
 
 class Channel(object):
     def __init__(self, name):
@@ -13,25 +14,28 @@ class Server(object):
         self.port = int(port)
         self.host = 'localhost'
         self.server = socket.socket()
-        self.server.bind((self.address, self.port))
+        self.server.bind((self.host, self.port))
         self.server.listen(5)
         self.socket_list = [self.server]
         self.channels = []
         self.channel_names = []
         
     def run(self):
-       pattern = re.compile('\[(.+)\]\s(/join|/create|/list)?\s?(.*)')
+        pattern = re.compile('\[(.+)\]\s(/join|/create|/list)?\s?(.*)')
         while True:
             readable, writable, exception = select.select(self.socket_list, [], [], 0)
             for s in readable:
                 # for a new connection
-                if s is server:
-                    sfd, addr = server.accept()
-                    self.socket_list.append(sockfd)
+                if s is self.server:
+                    sfd, addr = self.server.accept()
+                    self.socket_list.append(sfd)
+                    print 'Client {0} connected'.format(addr)
+                    print self.socket_list
                 # a message from client, not a new client
                 else:
                     try:
                         data = s.recv(1024)
+                        s.send(data)
                         if data:
                             m = pattern.match(data)
                             if m.group(2) == '/join':
@@ -48,6 +52,7 @@ class Server(object):
                                     self.send_error_message(s, utils.SERVER_CHANNEL_EXISTS.format(m.group(3)))
                                 else: 
                                     #create
+                                    self.create(m.group(3), s)
                             elif m.group(2) == '/list' and m.group(2) == '':
                                 #show list
                                 self.send_list(s)
@@ -64,7 +69,7 @@ class Server(object):
                     except:
                         #broadcast client is disconnected
                         continue
-        server.close()
+        self.server.close()
 
     def send_list(self, socket):
         for channel in self.channel_names:
@@ -73,7 +78,7 @@ class Server(object):
             except:
                 socket.close()
                 for chan in channels:
-                    if socket in chan.members
+                    if socket in chan.members:
                         chan.members.remove(socket)
                 self.socket_list.remove(socket)
     
@@ -140,3 +145,4 @@ if len(args) != 2:
     sys.exit()
 
 server = Server(args[1])
+server.run()

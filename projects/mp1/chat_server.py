@@ -2,7 +2,7 @@
  
 import sys, socket, select
 
-HOST = 'localhost' 
+HOST = 'localhost'
 SOCKET_LIST = []
 RECV_BUFFER = 4096 
 PORT = 12345

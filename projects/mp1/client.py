@@ -1,6 +1,7 @@
 import sys
 import socket
 import utils
+import select
 
 class  Client(object):
     
@@ -22,18 +23,18 @@ class  Client(object):
             socket_list = [sys.stdin, self.socket]
             readable, writable, exception = select.select(socket_list, [], [])
             for s in readable:
-                if s is server:
+                if s is self.socket:
                     data = s.recv(1024)
                     if not data:
                         print utils.CLIENT_SERVER_DISCONNECTED.format(self.host, self.port)
                         sys.exit()
                     else:
                         sys.stdout.write(data)
-                        sys.stdout.write(utils.CLIENT_WIPE_ME, utils.CLIENT_MESSAGE_PREFIX, ); sys.stdout.flush()
+                        sys.stdout.write(utils.CLIENT_WIPE_ME + utils.CLIENT_MESSAGE_PREFIX, ); sys.stdout.flush()
                 else:
                     msg = sys.stdin.readline()
-                    msg = name + ' ' + msg
-                    s.send(name msg)
+                    msg = self.name + ' ' + msg
+                    self.socket.send(msg)
                     sys.stdout.write(utils.CLIENT_MESSAGE_PREFIX, ); sys.stdout.flush()
                 
 args = sys.argv
