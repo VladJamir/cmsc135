@@ -36,8 +36,8 @@ class Server(object):
                 else:
                     try:
                         data = socket.recv(4096)
+                        m = self.pattern.match(data.rstrip())
                         if data:
-                            m = self.pattern.match(data.rstrip())
                             if m.group(2) == '/join':
                                 if m.group(3) == '':
                                     self.send(socket, utils.SERVER_JOIN_REQUIRES_ARGUMENT)
@@ -69,23 +69,20 @@ class Server(object):
                                     print 'a'
                                     self.send(socket, utils.SERVER_CLIENT_NOT_IN_CHANNEL)
                                 else:
-                                    print 'b'
+                                    print data + ' = ' + m.group(1) + ' ' + m.group(2) + ' ' + m.group(3)
                                     self.broadcast_to_channel(socket, data)
                         else:
                             if socket in self.socket_list:
                                 self.socket_list.remove(socket)
-                    except Exception as e:
-                        #self.send(self.server, socket, 'Client  offline')  
-                        # send to channels that a socket left 
-                        #print 'e on line {}'.format(sys.exc_info()[-1].tb_lineno)                        
-                        print str(e)
+                    except:                        
+                        print data
                         continue
         self.server.close()
 
     def send(self, socket, message):
         try:
             print 'sending'
-            socket.send(message)
+            socket.send(message.ljust(utils.MESSAGE_LENGTH))
         except:
             print 'otherwise'
             socket.close()
