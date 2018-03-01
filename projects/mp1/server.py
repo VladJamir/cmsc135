@@ -56,20 +56,20 @@ class Server(object):
                                         self.send(socket, utils.SERVER_CHANNEL_EXISTS.format(m.group(3)))
                                     else:
                                         #create
-                                        self.create(socket, m.group(3))
+                                        self.create(socket, m.group(3), m.group(1))
                             elif m.group(2) == '/list' and m.group(3) == '':
                                 #show list
                                 self.show_list_of_channels(socket)
-                            elif m.group(2) == '' and m.group(3).startswith('/'):
+                            elif m.group(2) == None and m.group(3).startswith('/'):
                                 #invalid
-                                self.send(socket, utils.SERVER_INVALID_CONTROL_MESSAGE)
+                                self.send(socket, utils.SERVER_INVALID_CONTROL_MESSAGE.format(m.group(3)))
                             else:
                                 print 'it goes here '
                                 if not self.is_joined_in_channel(socket):
                                     print 'a'
                                     self.send(socket, utils.SERVER_CLIENT_NOT_IN_CHANNEL)
                                 else:
-                                    print data + ' = ' + m.group(1) + ' ' + m.group(2) + ' ' + m.group(3)
+                                    print data
                                     self.broadcast_to_channel(socket, data)
                         else:
                             if socket in self.socket_list:
@@ -81,7 +81,7 @@ class Server(object):
 
     def send(self, socket, message):
         try:
-            print 'sending'
+            print 'sending' + message + 'end'
             socket.send(message.ljust(utils.MESSAGE_LENGTH))
         except:
             print 'otherwise'
@@ -89,7 +89,8 @@ class Server(object):
             if s in self.socket_list:
                 self.socket_list.remove(s)
 
-    def create(self, socket, new_channel_name):
+    def create(self, socket, new_channel_name, client_name):
+        self.leave(socket, client_name)
         new_channel = Channel(new_channel_name)
         new_channel.clients.append(socket)
         self.channel_name_list.append(new_channel_name)
