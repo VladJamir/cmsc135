@@ -1,143 +1,135 @@
 import sys
 import socket
-import re
-import utils
 import select
+import utils
+import re
 
 class Channel(object):
+
     def __init__(self, name):
         self.name = name
-        self.members = []
-    
+        self.clients = []
+
 class Server(object):
+    
     def __init__(self, port):
-        self.port = int(port)
         self.host = 'localhost'
-        self.server = socket.socket()
+        self.port = int(port)
+        self.socket_list = []
+        self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.server.bind((self.host, self.port))
         self.server.listen(5)
-        self.socket_list = [self.server]
-        self.channels = []
-        self.channel_names = []
+        self.socket_list.append(self.server)
+        self.channel_name_list = []
+        self.channel_list = []
+        self.pattern = re.compile('\[(.+)\]\s(/join|/create|/list)?\s?(.*)')
+    
+    def chat(self):
         
-    def run(self):
-        pattern = re.compile('\[(.+)\]\s(/join|/create|/list)?\s?(.*)')
         while True:
             readable, writable, exception = select.select(self.socket_list, [], [], 0)
-            for s in readable:
-                # for a new connection
-                if s is self.server:
-                    sfd, addr = self.server.accept()
-                    self.socket_list.append(sfd)
-                    print 'Client {0} connected'.format(addr)
-                    print self.socket_list
-                # a message from client, not a new client
+            for socket in readable:
+                if socket is self.server:
+                    client, client_addr = self.server.accept()
+                    self.socket_list.append(client)
                 else:
                     try:
-                        data = s.recv(1024)
-                        s.send(data)
+                        data = socket.recv(4096)
+                        m = self.pattern.match(data.rstrip())
                         if data:
-                            m = pattern.match(data)
                             if m.group(2) == '/join':
                                 if m.group(3) == '':
-                                    #send error message
-                                    self.send_error_message(s, utils.SERVER_JOIN_REQUIRES_ARGUMENT)
+                                    self.send(socket, utils.SERVER_JOIN_REQUIRES_ARGUMENT)
+                                elif m.group(3) not in self.channel_name_list:
+                                    self.send(socket, utils.SERVER_NO_CHANNEL_EXISTS.format(m.group(3)))
                                 else:
+                                    #leave
+                                    self.leave(socket, m.group(1))
                                     #join
-                                    self.join(m.group(1), s, m.group(3))
+                                    self.join(socket, m.group(3), m.group(1))
                             elif m.group(2) == '/create':
                                 if m.group(3) == '':
-                                    self.send_error_message(s, utils.SERVER_CREATE_REQUIRES_ARGUMENT)
-                                elif m.group(3) in self.channel_names:
-                                    self.send_error_message(s, utils.SERVER_CHANNEL_EXISTS.format(m.group(3)))
-                                else: 
-                                    #create
-                                    self.create(m.group(3), s)
-                            elif m.group(2) == '/list' and m.group(2) == '':
+                                    self.send(socket, utils.SERVER_CREATE_REQUIRES_ARGUMENT)
+                                else:
+                                    if m.group(3) in self.channel_name_list:
+                                        self.send(socket, utils.SERVER_CHANNEL_EXISTS.format(m.group(3)))
+                                    else:
+                                        #create
+                                        self.create(socket, m.group(3))
+                            elif m.group(2) == '/list' and m.group(3) == '':
                                 #show list
-                                self.send_list(s)
-                            elif m.group(3).startswith('/'):
-                                #invalid pattern send SERVER_INVALID_CONTROL_MESSAGE = \
-                                self.send_error_message(s, utils.SERVER_INVALID_CONTROL_MESSAGE)
+                                self.show_list_of_channels(socket)
+                            elif m.group(2) == '' and m.group(3).startswith('/'):
+                                #invalid
+                                self.send(socket, utils.SERVER_INVALID_CONTROL_MESSAGE)
                             else:
-                                #send message to channels
-                                self.send_message(s, data)
-                        else: 
-                            #broadcast to channels if disconnected
-                            if sock in self.socket_list:
-                                self.socket_list.remove(s)
-                    except:
-                        #broadcast client is disconnected
+                                print 'it goes here '
+                                if not self.is_joined_in_channel(socket):
+                                    print 'a'
+                                    self.send(socket, utils.SERVER_CLIENT_NOT_IN_CHANNEL)
+                                else:
+                                    print data + ' = ' + m.group(1) + ' ' + m.group(2) + ' ' + m.group(3)
+                                    self.broadcast_to_channel(socket, data)
+                        else:
+                            if socket in self.socket_list:
+                                self.socket_list.remove(socket)
+                    except:                        
+                        print data
                         continue
         self.server.close()
 
-    def send_list(self, socket):
-        for channel in self.channel_names:
-            try:
-                socket.send(channel + '\n')
-            except:
-                socket.close()
-                for chan in channels:
-                    if socket in chan.members:
-                        chan.members.remove(socket)
-                self.socket_list.remove(socket)
-    
-    def leave(self, name, socket):
-        for channel in self.channels:
-            if socket in channel.members:
-                for client in channel.members:
-                    try:
-                        client.send(utils.SERVER_CLIENT_LEFT_CHANNEL.format(name) + '\n')
-                    except:
-                        client.close
-                        channel.members.remove(client)
-                        self.socket_list.remove(client)
-
-    def join(self, name, socket, channel):
-        for ch in self.channels:
-            if ch.name == channel:
-                for client in channel.members:
-                    try:
-                        if client != socket:
-                            client.send(utils.SERVER_CLIENT_JOINED_CHANNEL.format(name) + '\n')
-                    except:
-                        client.close()
-                        channel.members.remove(client)
-                        self.socket_list.remove(client)
-                channel.members.add(socket)
-                break
-        else:
-            socket.send(utils.SERVER_NO_CHANNEL_EXISTS)
-
-    def create(self, name, socket):
-        channel = Channel(name)
-        self.channel_names.append(name)
-        channel.members.append(socket)
-
-    def send_error_message(self, socket, message):
+    def send(self, socket, message):
         try:
-            socket.send(message)
+            print 'sending'
+            socket.send(message.ljust(utils.MESSAGE_LENGTH))
         except:
+            print 'otherwise'
             socket.close()
-            self.socket_list.remove(socket)
-            for channel in self.channels:
-                if socket in channel.members:
-                    channel.members.remove(socket)
+            if s in self.socket_list:
+                self.socket_list.remove(s)
 
-    def send_message(self, socket, message):
-        for channel in self.channels:
-            if socket in channel.members:
-                for s in channel.members:
-                    try:
-                        if s != socket:
-                            s.send(message)
-                    except:
-                        s.close()
-                        self.socket_list.remove(s)
-                        channel.members.remove(s)
+    def create(self, socket, new_channel_name):
+        new_channel = Channel(new_channel_name)
+        new_channel.clients.append(socket)
+        self.channel_name_list.append(new_channel_name)
+        self.channel_list.append(new_channel)
+
+    def show_list_of_channels(self, socket):
+        for channel_name in self.channel_name_list:
+            self.send(socket, channel_name)
+    
+    def leave(self, socket, client_name):
+        for channel in self.channel_list:
+            if socket in channel.clients:
+                for client in channel.clients:
+                    if client != socket:
+                        self.send(client, utils.SERVER_CLIENT_LEFT_CHANNEL.format(client_name))
+                channel.clients.remove(socket)
                 break
+
+    def join(self, socket, channel_name, client_name):
+        for channel in self.channel_list:
+            if channel_name == channel.name:
+                for client in channel.clients:
+                    self.send(client, utils.SERVER_CLIENT_JOINED_CHANNEL.format(client_name))
+                channel.clients.append(socket)
+                break
+
+    def is_joined_in_channel(self, socket):
+        for channel in self.channel_list:
+            if socket in channel.clients:
+                return True
         else:
-            self.send_error_message(socket, utils.SERVER_CLIENT_NOT_IN_CHANNEL)
+            return False
+        
+    def broadcast_to_channel(self, socket, message):
+        for channel in self.channel_list:
+            if socket in channel.clients:
+                for client in channel.clients:
+                    if client != socket:
+                        self.send(client, message)
+                break
 
 args = sys.argv
 if len(args) != 2:
@@ -145,4 +137,6 @@ if len(args) != 2:
     sys.exit()
 
 server = Server(args[1])
-server.run()
+server.chat()
+
+                    
