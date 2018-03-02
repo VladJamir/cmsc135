@@ -54,16 +54,16 @@ class ChatClientSplitMessages:
       print utils.CLIENT_CANNOT_CONNECT.format(self.server_host, self.server_port)
       return
 
-    my_name = "SplitMessagesChatClient"
+    my_name = "[SplitMessagesChatClient]"
     # Send the server our name.
-    self.send_split_message(client_socket, my_name)
+    #self.send_split_message(client_socket, my_name)
 
     # Join a "split_messages" channel. This code assumes that the channel
     # already exists.
-    self.send_split_message(client_socket, "/join split_messages")
+    self.send_split_message(client_socket, "[SplitMessagesChatClient] /join split_messages")
 
     # Send the same message 10 times.
-    message = ("I think that I shall never see a structure more wasteful " +
+    message = ("[SplitMessagesChatClient] I think that I shall never see a structure more wasteful " +
       "than a tree. Most links remain idle and unused while others are " +
       "overloaded and abused.")
     for i in range(10):

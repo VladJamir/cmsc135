@@ -35,8 +35,9 @@ class Server(object):
                     self.socket_list.append(client)
                 else:
                     try:
-                        data = socket.recv(4096)
+                        data = self.receive_msg(socket)
                         m = self.pattern.match(data.rstrip())
+                        
                         if data:
                             if m.group(2) == '/join':
                                 if m.group(3) == '':
@@ -64,31 +65,43 @@ class Server(object):
                                 #invalid
                                 self.send(socket, utils.SERVER_INVALID_CONTROL_MESSAGE.format(m.group(3)))
                             else:
-                                print 'it goes here '
+                                print 'it goes here'
                                 if not self.is_joined_in_channel(socket):
-                                    print 'a'
+                                    print m.group(2), m.group(3)
                                     self.send(socket, utils.SERVER_CLIENT_NOT_IN_CHANNEL)
                                 else:
-                                    print data
+                                    print 'broadcating to channels [', data, ']'
                                     self.broadcast_to_channel(socket, data)
                         else:
                             if socket in self.socket_list:
                                 self.socket_list.remove(socket)
-                    except:                        
-                        print data
+                    except Exception as e:                        
+                        print 'Error on line {}'.format(sys.exc_info()[-1].tb_lineno), e
+                        #self.leave(socket, m.group(2))
+                        if socket in self.socket_list:
+                            self.socket_list.remove(socket)
+                            for channel in self.channel_list:
+                                if socket in channel.clients:
+                                    channel.clients.remove(socket)
                         continue
         self.server.close()
 
     def send(self, socket, message):
         try:
             print 'sending' + message + 'end'
-            socket.send(message.ljust(utils.MESSAGE_LENGTH))
+            message = self.pad(message)
+            socket.send(message)
         except:
-            print 'otherwise'
+            print 'message not sent, socket closed'
             socket.close()
             if s in self.socket_list:
                 self.socket_list.remove(s)
-
+    
+    def pad(self, msg):
+        while len(msg) < utils.MESSAGE_LENGTH:
+            msg += ' '
+        return msg
+    
     def create(self, socket, new_channel_name, client_name):
         self.leave(socket, client_name)
         new_channel = Channel(new_channel_name)
@@ -131,6 +144,17 @@ class Server(object):
                     if client != socket:
                         self.send(client, message)
                 break
+
+    def receive_msg(self, socket):
+        chunks = []
+        bytes_recd = 0
+        while bytes_recd < utils.MESSAGE_LENGTH:
+            chunk = socket.recv(min(utils.MESSAGE_LENGTH - bytes_recd, 2048))
+            if chunk == b'':
+                raise RuntimeError("socket connection broken")
+            chunks.append(chunk)
+            bytes_recd = bytes_recd + len(chunk)
+        return b''.join(chunks)
 
 args = sys.argv
 if len(args) != 2:

@@ -26,7 +26,7 @@ class Client(object):
             readable, writable, exception = select.select(socket_list, [], [])
             for socket in readable:
                 if socket is self.client:
-                    data = socket.recv(4096)
+                    data = self.receive_msg(socket)
                     if not data:
                         print utils.CLIENT_SERVER_DISCONNECTED.format(self.host, self.port)
                         sys.exit()
@@ -39,7 +39,21 @@ class Client(object):
                     msg = '[' + self.name + '] ' + msg
                     self.client.send(msg.ljust(utils.MESSAGE_LENGTH))
                     sys.stdout.write(utils.CLIENT_MESSAGE_PREFIX); sys.stdout.flush()
-                
+    
+    def receive_msg(self, socket):
+        chunks = []
+        bytes_recd = 0
+        i = 0
+        while bytes_recd < utils.MESSAGE_LENGTH:
+            try:
+                chunk = socket.recv(min(utils.MESSAGE_LENGTH - bytes_recd, 2048))
+                if chunk == b'':
+                    raise RuntimeError("socket connection broken")
+                chunks.append(chunk)
+                bytes_recd = bytes_recd + len(chunk)     
+            except:
+                break;   
+        return b''.join(chunks)         
                     
 args = sys.argv
 if len(args) != 4:
